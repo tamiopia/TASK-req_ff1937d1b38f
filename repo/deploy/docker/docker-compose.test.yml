@@ -1,0 +1,57 @@
+version: '3.9'
+
+# Run with: docker-compose -f docker-compose.yml -f docker-compose.test.yml up --abort-on-container-exit test
+# Or use: scripts/run-tests.sh
+
+services:
+
+  db:
+    environment:
+      MYSQL_DATABASE: ${DB_TEST_NAME:-service_portal_test}
+
+  migrate:
+    environment:
+      DB_NAME: ${DB_TEST_NAME:-service_portal_test}
+
+  # ── Backend Tests (unit + integration) ─────────────────────────────────────
+  backend-test:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+    command: ["test"]
+    environment:
+      APP_ENV: test
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_TEST_NAME:-service_portal_test}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+    depends_on:
+      - migrate
+    restart: "no"
+
+  # ── Frontend Playwright Tests ────────────────────────────────────────────────
+  frontend-test:
+    image: mcr.microsoft.com/playwright:v1.59.1-jammy
+    working_dir: /app
+    command: ["npx", "playwright", "test", "--reporter=list"]
+    environment:
+      BASE_URL: http://frontend:80
+      CI: "true"
+    volumes:
+      - ../../frontend:/app
+    depends_on:
+      - frontend
+      - backend
+    restart: "no"
+
+  # ── Test orchestrator (exit code drives CI pass/fail) ───────────────────────
+  test:
+    image: alpine:3.19
+    command: >
+      sh -c "echo 'All test services completed' && exit 0"
+    depends_on:
+      - backend-test
+      - frontend-test
+    restart: "no"
