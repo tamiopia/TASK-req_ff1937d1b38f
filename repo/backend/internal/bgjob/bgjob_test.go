@@ -16,7 +16,7 @@ func TestSafe_RecoversFromPanic_AndLogs(t *testing.T) {
 	// itself — a silent recovery is worse than a visible one).
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
-	t.Cleanup(func() { log.SetOutput(nil) })
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 
 	// The call must NOT re-raise; if recover() had missed, the test process
 	// would abort here rather than reaching the assertions below.
@@ -35,7 +35,7 @@ func TestSafe_RecoversFromPanic_AndLogs(t *testing.T) {
 
 func TestSafe_HappyPath_RunsFnAndReturnsNormally(t *testing.T) {
 	log.SetOutput(new(bytes.Buffer))
-	t.Cleanup(func() { log.SetOutput(nil) })
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 
 	called := false
 	bgjob.Safe("noop", func() { called = true })
@@ -46,7 +46,7 @@ func TestSafe_ConcurrentPanics_IsolatedPerCall(t *testing.T) {
 	// Two Safe() calls from different goroutines — one panics, one doesn't —
 	// must not interfere with each other.
 	log.SetOutput(new(bytes.Buffer))
-	t.Cleanup(func() { log.SetOutput(nil) })
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 
 	done := make(chan bool, 2)
 	go func() {

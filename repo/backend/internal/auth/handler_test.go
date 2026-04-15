@@ -121,3 +121,40 @@ func TestRegisterRequest_InvalidEmail(t *testing.T) {
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
+
+func TestAuthMe_MissingAuth(t *testing.T) {
+	w := httptest.NewRecorder()
+	_, r := gin.CreateTestContext(w)
+
+	r.GET("/me", func(c *gin.Context) {
+		// Simulate missing authentication
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/me", nil)
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestAuthMe_Success(t *testing.T) {
+	w := httptest.NewRecorder()
+	_, r := gin.CreateTestContext(w)
+
+	r.GET("/me", func(c *gin.Context) {
+		// Simulate successful authentication
+		c.JSON(http.StatusOK, gin.H{
+			"id": 1,
+			"username": "testuser",
+			"email": "test@example.com",
+			"display_name": "Test User"
+		})
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/me", nil)
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}

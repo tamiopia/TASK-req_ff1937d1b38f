@@ -262,3 +262,35 @@ func TestHTTP_Addresses_CreateListDeleteDefault(t *testing.T) {
 func uintToStr(id uint64) string {
 	return strconv.FormatUint(id, 10)
 }
+
+func TestProfileGet_Success(t *testing.T) {
+	srv := profileServer(t)
+	client := srv.Client()
+	csrf := loginAndGetCSRF(t, client, srv.URL, "addrhttp")
+
+	// Get user profile
+	resp := doProfileJSON(t, client, http.MethodGet, srv.URL+"/api/v1/profile", nil, "")
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	
+	var profile map[string]interface{}
+	err := json.NewDecoder(resp.Body).Decode(&profile)
+	require.NoError(t, err)
+	resp.Body.Close()
+	
+	// Verify profile structure
+	assert.Contains(t, profile, "id")
+	assert.Contains(t, profile, "username")
+	assert.Contains(t, profile, "email")
+	assert.Contains(t, profile, "display_name")
+	assert.Equal(t, "addrhttp", profile["username"])
+}
+
+func TestProfileGet_Unauthorized(t *testing.T) {
+	srv := profileServer(t)
+	client := srv.Client()
+
+	// Get profile without authentication
+	resp := doProfileJSON(t, client, http.MethodGet, srv.URL+"/api/v1/profile", nil, "")
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	resp.Body.Close()
+}

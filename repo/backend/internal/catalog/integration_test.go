@@ -304,3 +304,48 @@ func TestHTTP_ShippingEstimate_Pickup_NoWindow(t *testing.T) {
 	_, hasWindow := body["estimated_arrival_window"]
 	assert.False(t, hasWindow)
 }
+
+func TestHTTP_ListServices_PublicAccess(t *testing.T) {
+	srv, db := catalogServerWithDB(t)
+
+	// Insert test data
+	db.Exec(`INSERT INTO service_categories (name, description) VALUES (?,?)`,
+		"Test Category", "A test category")
+	var categoryID uint64
+	db.QueryRow(`SELECT id FROM service_categories WHERE name='Test Category'`).Scan(&categoryID)
+
+	db.Exec(`INSERT INTO service_offerings (category_id, name, description, base_price, duration_minutes, is_active) VALUES (?,?,?,?,?,?)`,
+		categoryID, "Test Service", "A test service", 100.0, 60, true)
+
+	client := srv.Client()
+
+	resp := doCatalogJSON(t, client, http.MethodGet, srv.URL+"/api/v1/catalog/services", nil, "")
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var body map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&body)
+	services := body["services"].([]interface{})
+	assert.NotNil(t, services)
+	assert.Greater(t, len(services), 0)
+}
+
+func TestHTTP_ListCategories_PublicAccess(t *testing.T) {
+	srv, db := catalogServerWithDB(t)
+
+	// Insert test data
+	db.Exec(`INSERT INTO service_categories (name, description) VALUES (?,?)`,
+		"Test Category", "A test category")
+
+	client := srv.Client()
+
+	resp := doCatalogJSON(t, client, http.MethodGet, srv.URL+"/api/v1/catalog/categories", nil, "")
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var body map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&body)
+	categories := body["categories"].([]interface{})
+	assert.NotNil(t, categories)
+	assert.Greater(t, len(categories), 0)
+}
