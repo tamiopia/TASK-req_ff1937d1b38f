@@ -1,7 +1,7 @@
 version: '3.9'
 
-# Run with: docker-compose -f docker-compose.yml -f docker-compose.test.yml up --abort-on-container-exit test
-# Or use: scripts/run-tests.sh
+# Run with: ./scripts/run-tests.sh
+# Or manually: docker compose -f docker-compose.yml -f docker-compose.test.yml up --abort-on-container-exit test
 
 services:
 
@@ -12,6 +12,7 @@ services:
   migrate:
     environment:
       DB_NAME: ${DB_TEST_NAME:-service_portal_test}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
 
   # ── Backend Tests (unit + integration) ─────────────────────────────────────
   backend-test:
@@ -24,8 +25,8 @@ services:
       DB_HOST: db
       DB_PORT: 3306
       DB_NAME: ${DB_TEST_NAME:-service_portal_test}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_USER: ${DB_USER:-portal_user}
+      DB_PASSWORD: ${DB_PASSWORD:-portalpassword}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
     depends_on:
       - migrate
@@ -33,14 +34,19 @@ services:
 
   # ── Frontend Playwright Tests ────────────────────────────────────────────────
   frontend-test:
-    image: mcr.microsoft.com/playwright:v1.59.1-jammy
-    working_dir: /app
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.frontend
+    # Override the nginx CMD with Playwright
+    entrypoint: []
     command: ["npx", "playwright", "test", "--reporter=list"]
+    working_dir: /playwright
     environment:
       BASE_URL: http://frontend:80
       CI: "true"
     volumes:
-      - ../../frontend:/app
+      - ../../frontend/tests:/playwright/tests:ro
+      - ../../frontend/playwright.config.js:/playwright/playwright.config.js:ro
     depends_on:
       - frontend
       - backend

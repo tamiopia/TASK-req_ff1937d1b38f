@@ -29,8 +29,9 @@ COPY --from=builder /server ./server
 # Storage directories (overridden by docker-compose volumes in production)
 RUN mkdir -p storage/uploads storage/exports storage/backups storage/lakehouse storage/temp
 
-# Seed directory populated by docker-compose volume mount
-RUN mkdir -p seeds
+# Embed seed SQL files into the image so seeding works in any environment
+# (CI, CodeBuild, etc.) without relying on host-path volume mounts.
+COPY deploy/seed/ ./seeds/
 
 EXPOSE 8080
 
