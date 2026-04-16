@@ -34,7 +34,7 @@ services:
   frontend-test:
     image: node:20-alpine
     command: >
-      sh -c "npm install --silent && npx playwright install --with-deps && npx playwright test --reporter=list"
+      sh -c "echo 'Starting frontend tests...' && pwd && ls -la && npm install --silent && echo 'npm install complete' && apk add --no-cache chromium nss && echo 'chromium installed' && npx playwright install chromium && echo 'playwright install complete' && npx playwright test --reporter=list"
     working_dir: /app
     environment:
       BASE_URL: http://frontend:80
@@ -43,7 +43,7 @@ services:
       - ../../frontend/tests:/app/tests:ro
       - ../../frontend/playwright.config.js:/app/playwright.config.js:ro
       - ../../frontend/package.json:/app/package.json:ro
-      - ../../frontend/package-lock.json:/app/package-lock.json:ro
+      - ../../frontend/package-lock.json:/app/package-lock.json
     depends_on:
       - frontend
       - backend
