@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -145,17 +146,25 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*LoginOutput, error
 	}
 
 	user, err := s.getUserByUsername(ctx, in.Username)
-	if err != nil || user == nil {
+	if err != nil {
+		log.Printf("[LOGIN DEBUG] getUserByUsername(%q) failed: %v", in.Username, err)
+		_ = s.recordAttempt(ctx, in.Username, in.IPAddress, false)
+		return nil, ErrInvalidCredentials
+	}
+	if user == nil {
+		log.Printf("[LOGIN DEBUG] getUserByUsername(%q) returned nil (not found)", in.Username)
 		_ = s.recordAttempt(ctx, in.Username, in.IPAddress, false)
 		return nil, ErrInvalidCredentials
 	}
 
 	if !user.IsActive || user.IsDeleted {
+		log.Printf("[LOGIN DEBUG] user %q blocked: active=%v deleted=%v", in.Username, user.IsActive, user.IsDeleted)
 		_ = s.recordAttempt(ctx, in.Username, in.IPAddress, false)
 		return nil, ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(in.Password)); err != nil {
+		log.Printf("[LOGIN DEBUG] bcrypt mismatch for %q: %v (hash_len=%d, pw_len=%d)", in.Username, err, len(user.PasswordHash), len(in.Password))
 		_ = s.recordAttempt(ctx, in.Username, in.IPAddress, false)
 		return nil, ErrInvalidCredentials
 	}
@@ -178,17 +187,30 @@ func (s *Service) GetUserByID(ctx context.Context, id uint64) (*models.User, err
 
 func (s *Service) getUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	var u models.User
+	var avatarURL, bio sql.NullString
+	var freeze sql.NullTime
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, username, email, password_hash, display_name, avatar_url, bio, is_active, is_deleted, posting_freeze_until
+		`SELECT id, username, email, password_hash, display_name,
+		        COALESCE(avatar_url,''), COALESCE(bio,''),
+		        is_active, is_deleted, posting_freeze_until
 		 FROM users WHERE username = ? AND is_deleted = 0`,
 		username,
 	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.DisplayName,
-		&u.AvatarURL, &u.Bio, &u.IsActive, &u.IsDeleted, &u.PostingFreezeUntil)
+		&avatarURL, &bio, &u.IsActive, &u.IsDeleted, &freeze)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("auth: get user: %w", err)
+	}
+	if avatarURL.Valid {
+		u.AvatarURL = avatarURL.String
+	}
+	if bio.Valid {
+		u.Bio = bio.String
+	}
+	if freeze.Valid {
+		u.PostingFreezeUntil = &freeze.Time
 	}
 	u.Roles, _ = s.loadRoles(ctx, u.ID)
 	return &u, nil
@@ -196,17 +218,30 @@ func (s *Service) getUserByUsername(ctx context.Context, username string) (*mode
 
 func (s *Service) getUserByID(ctx context.Context, id uint64) (*models.User, error) {
 	var u models.User
+	var avatarURL, bio sql.NullString
+	var freeze sql.NullTime
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, username, email, display_name, avatar_url, bio, is_active, is_deleted, posting_freeze_until
+		`SELECT id, username, email, display_name,
+		        COALESCE(avatar_url,''), COALESCE(bio,''),
+		        is_active, is_deleted, posting_freeze_until
 		 FROM users WHERE id = ? AND is_deleted = 0`,
 		id,
 	).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName,
-		&u.AvatarURL, &u.Bio, &u.IsActive, &u.IsDeleted, &u.PostingFreezeUntil)
+		&avatarURL, &bio, &u.IsActive, &u.IsDeleted, &freeze)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("auth: get user by id: %w", err)
+	}
+	if avatarURL.Valid {
+		u.AvatarURL = avatarURL.String
+	}
+	if bio.Valid {
+		u.Bio = bio.String
+	}
+	if freeze.Valid {
+		u.PostingFreezeUntil = &freeze.Time
 	}
 	u.Roles, _ = s.loadRoles(ctx, u.ID)
 	return &u, nil

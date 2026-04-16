@@ -1,7 +1,5 @@
 services:
 
-services:
-
   # ── MySQL Database ──────────────────────────────────────────────────────────
   db:
     image: mysql:8.0
@@ -25,7 +23,7 @@ services:
   # ── Run Migrations ──────────────────────────────────────────────────────────
   migrate:
     build:
-      context: ..
+      context: .
       dockerfile: deploy/docker/Dockerfile.backend
     command: ["migrate"]
     environment:
@@ -46,7 +44,7 @@ services:
   # ── Seed Data ───────────────────────────────────────────────────────────────
   seed:
     build:
-      context: ..
+      context: .
       dockerfile: deploy/docker/Dockerfile.backend
     command: ["seed"]
     environment:
@@ -66,7 +64,7 @@ services:
   # ── Backend API ─────────────────────────────────────────────────────────────
   backend:
     build:
-      context: ..
+      context: .
       dockerfile: deploy/docker/Dockerfile.backend
     command: ["server"]
     restart: unless-stopped
@@ -96,7 +94,7 @@ services:
   # ── Frontend ────────────────────────────────────────────────────────────────
   frontend:
     build:
-      context: ..
+      context: .
       dockerfile: deploy/docker/Dockerfile.frontend
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}

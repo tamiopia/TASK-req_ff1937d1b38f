@@ -80,7 +80,9 @@ func resetSeedUsers(db *sql.DB) error {
 			     is_active           = 1,
 			     is_deleted          = 0,
 			     posting_freeze_until = NULL,
-			     anonymized_at       = NULL
+			     anonymized_at       = NULL,
+			     avatar_url          = COALESCE(avatar_url, ''),
+			     bio                 = COALESCE(bio, '')
 			 WHERE username = ?`,
 			hashStr, u,
 		)
